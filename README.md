@@ -1,6 +1,6 @@
 # my_rehab
 
-A new Flutter project.
+A flutter app for rehabilitating street kids and assigning them to rehab centers
 
 ## Getting Started
 
