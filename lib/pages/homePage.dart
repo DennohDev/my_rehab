@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('My Rehab'),
         centerTitle: true,
-        backgroundColor: Color(0XFF254C8F),
+        backgroundColor: const Color(0XFF254C8F),
       ),
       drawer: const MyDrawer(),
       body: Column(children: [
@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
               height: 24,
               width: 24,
             ),
-            title: Text('Enroll New Street Kid'),
+            title: const Text('Enroll New Street Kid'),
           ),
         ),
         GestureDetector(

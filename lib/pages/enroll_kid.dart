@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:my_rehab/pages/homePage.dart';
 
 class EnrollStreetKidPage extends StatefulWidget {
@@ -19,10 +20,17 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
   final TextEditingController _rehabController = TextEditingController();
   final TextEditingController _healthController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
+  bool isChecked = false;
+  final LocalAuthentication _localAuthentication = LocalAuthentication();
+  @override
+  void initState() {
+    super.initState();
+    checkFingerprintStatus();
+  }
   void sendDataToDB() async {
     CollectionReference addStreetChildrenCollection =
         FirebaseFirestore.instance.collection("Street_children");
-        var currentUser = FirebaseAuth.instance.currentUser;
+    var currentUser = FirebaseAuth.instance.currentUser;
     showDialog(
         context: context,
         builder: (context) {
@@ -32,7 +40,8 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
         });
 
     return addStreetChildrenCollection
-        .doc(currentUser!.email).set({
+        .doc(currentUser!.email)
+        .set({
           "name": _nameController.text,
           "residence": _residenceController.text,
           "guardian": _guardianController.text,
@@ -40,10 +49,43 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
           "gender": _genderController.text,
           "health": _healthController.text,
         })
-        .then((value) => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const HomePage())))
+        .then((value) => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const HomePage())))
         .catchError((error) =>
             Fluttertoast.showToast(msg: 'Something is wrong. $error'));
+  }
+  Future<void> checkFingerprintStatus() async {
+    try {
+      bool isFingerprintAvailable = await _localAuthentication.canCheckBiometrics;
+      if (isFingerprintAvailable) {
+        List<BiometricType> availableBiometrics = await _localAuthentication.getAvailableBiometrics();
+        bool isFingerprintRecorded = availableBiometrics.contains(BiometricType.fingerprint);
+
+        setState(() {
+          isChecked = isFingerprintRecorded;
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> scanFingerprint() async {
+    try {
+      bool isAuthenticated = await _localAuthentication.authenticate(
+        localizedReason: 'Scan fingerprint to authenticate',
+        // useErrorDialogs: true,
+        // stickyAuth: true,
+      );
+
+      if (isAuthenticated) {
+        setState(() {
+          isChecked = true;
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   String? _validateName(String? value) {
@@ -181,13 +223,13 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                    controller: _genderController,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0)),
-                      labelText: 'Indicate the child\'s gender',
-                    ),
-                    validator: _validateGender,
+                      controller: _genderController,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.0)),
+                        labelText: 'Indicate the child\'s gender',
+                      ),
+                      validator: _validateGender,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -231,31 +273,34 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('FingerPrint Details'),
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: isChecked,
+                              onChanged: (value) {
+                                setState(() {
+                                  isChecked = value!;
+                                });
+                              },
+                            ),
+                            Text('FingerPrint'),
+                          ],
+                        ),
                         GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Scan FingerPrint',
-                              style: TextStyle(
-                                  decoration: TextDecoration.underline),
-                            ))
+                          onTap: () {
+                            scanFingerprint();
+                          },
+                          child: Text(
+                            'Scan fingerprint',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(
                       height: 16,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Face ID details'),
-                        GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Scan Face ID',
-                              style: TextStyle(
-                                  decoration: TextDecoration.underline),
-                            ))
-                      ],
                     ),
                     const SizedBox(
                       height: 16,
@@ -265,12 +310,12 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
                         //TODO: implement on Tap Logic
                         if (_formKey.currentState!.validate()) {
                           sendDataToDB();
-                        _nameController.text = '';
-                        _residenceController.text ='';
-                        _guardianController.text = '';
-                        _genderController.text = '';
-                        _healthController.text = '';
-                        _rehabController.text = '';
+                          _nameController.text = '';
+                          _residenceController.text = '';
+                          _guardianController.text = '';
+                          _genderController.text = '';
+                          _healthController.text = '';
+                          _rehabController.text = '';
                         }
                       },
                       child: Container(
@@ -279,8 +324,14 @@ class _EnrollStreetKidPageState extends State<EnrollStreetKidPage> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 100, vertical: 10),
-                          child: Text('SAVE',style: TextStyle(color: Colors.white, ),),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 100, vertical: 10),
+                          child: Text(
+                            'SAVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ),
